@@ -1,6 +1,6 @@
-# Telegram Bot Guide — Katana Agent
+# Telegram Bot Guide
 
-Complete guide for the Telegram integration: always-listening bot daemon, command reference, server management, and troubleshooting.
+Complete guide for the Telegram bot template: always-listening daemon, command reference, server management, and building custom integrations.
 
 ---
 
@@ -10,65 +10,45 @@ Complete guide for the Telegram integration: always-listening bot daemon, comman
 
 ```bash
 # Check if listener is running
-python3 telegram_listener.py --status
+python telegram_listener.py --status
 
 # Start in foreground (see logs live)
-python3 telegram_listener.py
+python telegram_listener.py
 
 # Start as background daemon
-python3 telegram_listener.py --daemon
+python telegram_listener.py --daemon
 
 # Stop the running listener
-python3 telegram_listener.py --stop
+python telegram_listener.py --stop
 
 # Enter sleep mode (no responses, only scheduled alerts)
-python3 telegram_listener.py --sleep
+python telegram_listener.py --sleep
 
 # Wake from sleep mode
-python3 telegram_listener.py --wake
+python telegram_listener.py --wake
 ```
 
 ### After Updating `.env` Variables
 
-The listener loads environment variables at startup. If you add or change a key in `.env`, **you must restart**:
+The listener loads environment variables at startup. If you change `.env`, **restart**:
 
 ```bash
-cd ~/News\ Letter
-python3 telegram_listener.py --stop
-python3 telegram_listener.py --daemon
-```
-
-Common variables that require a restart when changed:
-
-| Variable | File | Used By |
-|----------|------|---------|
-| `RENTAHUMAN_API_KEY` | `.env` | `/rent` commands |
-| `SUPABASE_URL` / `SUPABASE_KEY` | `.env` | `/pulse stats`, subscriber queries |
-| `KATANA_HTTP_TELEGRAM_BOT_TOKEN` | `.env` | Bot authentication |
-| `TELEGRAM_BOT_USER_ID` | `.env` | Message filtering (only responds to this user) |
-| `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` | `~/mcp-servers/telegram-mcp/.env` | Telethon client auth |
-
-### After Updating Code
-
-If you edit `telegram_listener.py` or `telegram_helpers.py`, restart the daemon to pick up changes:
-
-```bash
-python3 telegram_listener.py --stop && python3 telegram_listener.py --daemon
+python telegram_listener.py --stop && python telegram_listener.py --daemon
 ```
 
 ### Logs
 
 ```bash
 # Live tail of listener logs
-tail -f ~/News\ Letter/logs/telegram_listener.log
+tail -f logs/telegram_listener.log
 
 # Check recent activity
-tail -50 ~/News\ Letter/logs/telegram_listener.log
+tail -50 logs/telegram_listener.log
 ```
 
 ### Run as macOS Launch Agent (always-on)
 
-Create `~/Library/LaunchAgents/com.katana.telegram-listener.plist`:
+Create `~/Library/LaunchAgents/com.yourname.telegram-listener.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -76,35 +56,35 @@ Create `~/Library/LaunchAgents/com.katana.telegram-listener.plist`:
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.katana.telegram-listener</string>
+    <string>com.yourname.telegram-listener</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>/Users/sc/News Letter/telegram_listener.py</string>
+        <string>/path/to/Telegram/telegram_listener.py</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>WorkingDirectory</key>
-    <string>/Users/sc/News Letter</string>
+    <string>/path/to/Telegram</string>
     <key>StandardOutPath</key>
-    <string>/Users/sc/News Letter/logs/telegram_listener.log</string>
+    <string>/path/to/Telegram/logs/telegram_listener.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/sc/News Letter/logs/telegram_listener_error.log</string>
+    <string>/path/to/Telegram/logs/telegram_listener_error.log</string>
 </dict>
 </plist>
 ```
 
 ```bash
 # Load (start at login)
-launchctl load ~/Library/LaunchAgents/com.katana.telegram-listener.plist
+launchctl load ~/Library/LaunchAgents/com.yourname.telegram-listener.plist
 
 # Unload (stop)
-launchctl unload ~/Library/LaunchAgents/com.katana.telegram-listener.plist
+launchctl unload ~/Library/LaunchAgents/com.yourname.telegram-listener.plist
 
 # Check status
-launchctl list | grep katana
+launchctl list | grep telegram
 ```
 
 ### PID & State Files
@@ -113,7 +93,7 @@ launchctl list | grep katana
 |------|---------|
 | `/tmp/telegram_listener.pid` | Running process ID |
 | `/tmp/telegram_listener_state.json` | Sleep/wake state |
-| `/tmp/telegram_agent_queue.json` | Queued commands for Claude agent pickup |
+| `/tmp/telegram_agent_queue.json` | Queued commands for agent pickup |
 
 ---
 
@@ -122,36 +102,30 @@ launchctl list | grep katana
 ```
 ┌──────────────────┐          ┌────────────────────────┐
 │  Telegram User   │◀────────▶│  telegram_listener.py  │
-│  (phone/desktop) │  Telethon│  (Katana Bot daemon)   │
+│  (phone/desktop) │  Telethon│  (Telegram Bot daemon) │
 └──────────────────┘  Bot API │                        │
-                              │  route_command()        │
-                              │    ├─ handle_oracle()   │
-                              │    ├─ handle_pulse()    │
-                              │    ├─ handle_vibe()     │
-                              │    ├─ handle_rent()     │
-                              │    ├─ handle_weather()  │
-                              │    ├─ handle_*_task()   │
-                              │    └─ ...               │
-                              └──────────┬─────────────┘
-                                         │ imports
-                              ┌──────────▼─────────────┐
-                              │  telegram_helpers.py    │
-                              │  (pure Python engine)   │
-                              │                         │
-                              │  Oracle: moon, signs,   │
-                              │    horoscope, events    │
-                              │  Pulse: news, stats     │
-                              │  Vibe: food, music,     │
-                              │    outfit, activity     │
-                              │  Rent: bounties, skills │
-                              └──────────┬─────────────┘
-                                         │ HTTP
-                              ┌──────────▼─────────────┐
-                              │  External APIs          │
-                              │  • Supabase (DB)        │
-                              │  • Open-Meteo (weather) │
-                              │  • RentAHuman (tasks)   │
-                              └─────────────────────────┘
+                               │  route_command()       │
+                               │    ├─ handle_tasks()   │
+                               │    ├─ handle_goals()   │
+                               │    ├─ handle_weather() │
+                               │    └─ [your commands]  │
+                               └──────────┬─────────────┘
+                                          │ imports
+                               ┌──────────▼─────────────┐
+                               │  telegram_helpers.py   │
+                               │  (pure Python engine)  │
+                               │                        │
+                               │  Add your services:    │
+                               │  • API integrations    │
+                               │  • Data processing     │
+                               │  • Custom logic        │
+                               └──────────┬─────────────┘
+                                          │ HTTP
+                               ┌──────────▼─────────────┐
+                               │  External APIs         │
+                               │  • Open-Meteo (weather)│
+                               │  • Your APIs here      │
+                               └────────────────────────┘
 ```
 
 ### Key Files
@@ -159,26 +133,16 @@ launchctl list | grep katana
 | File | Purpose |
 |------|---------|
 | `telegram_listener.py` | Bot daemon — Telethon client, event handler, command router, scheduled alerts |
-| `telegram_helpers.py` | Pure-Python helpers — no MCP or Claude deps, only stdlib + requests + supabase |
-| `.env` | API keys (Supabase, RentAHuman, Telegram creds, Mailgun, etc.) |
-| `~/mcp-servers/telegram-mcp/.env` | Telegram API credentials (API_ID, API_HASH, USER_ID) |
-| `.claude/user_profile.json` | User profile (birth chart, preferences, daily tracker, telegram config) |
-
-### Two Telegram Integrations
-
-This project has **two separate** Telegram integrations:
-
-1. **Katana Bot** (`telegram_listener.py`) — A Telegram **bot** (uses bot token). Runs as a daemon, listens for commands from the user, responds automatically. This is the always-listening system.
-
-2. **Telegram MCP Server** (`~/mcp-servers/telegram-mcp/`) — A **userbot** (uses API_ID/API_HASH with session). Provides 60+ tools to Claude/OpenCode for sending messages, managing chats, etc. Used by the Master Agent for push notifications.
-
-They share the same Telegram API credentials but use different session files and serve different purposes.
+| `telegram_helpers.py` | Pure-Python helpers — add your custom integrations here |
+| `templates/helper_template.py` | Full integration pattern reference |
+| `.env` | API keys and credentials |
+| `.claude/user_profile.json` | User profile (preferences, daily tracker, telegram config) |
 
 ---
 
-## Available Commands
+## Built-in Commands
 
-Send these to @KatanaAgent_bot (or whatever your bot is named).
+Send these to your bot on Telegram.
 
 ### System
 
@@ -189,45 +153,6 @@ Send these to @KatanaAgent_bot (or whatever your bot is named).
 | `/weather` | Current weather (from Open-Meteo) |
 | `sleep` / `goodnight` | Enter sleep mode (only scheduled alerts) |
 | `wake` / `good morning` | Exit sleep mode |
-
-### Oracle (Astrology)
-
-| Command | Description |
-|---------|-------------|
-| `/oracle` | Today's full horoscope (sun + moon + rising readings) |
-| `/oracle moon` | Current moon phase + energy |
-| `/oracle week` | 7-day outlook (moon phases + day energy) |
-| `/oracle vibe` | Planetary vibe (dominant sign + day ruler) |
-
-### Pulse (Newsletter)
-
-| Command | Description |
-|---------|-------------|
-| `/pulse` | Pipeline status (ranked news + email files) |
-| `/pulse news` | Top headlines (auto-pulls feeds if none exist) |
-| `/pulse stats` | Subscriber count from Supabase |
-| `/pulse newsletter` | Read today's newsletter text |
-| `/pulse newsletter gen` | Generate newsletter (runs full pipeline) |
-| `/pulse send` | Send newsletter to subscribers |
-
-### Vibe (Daily Recommendations)
-
-| Command | Description |
-|---------|-------------|
-| `/vibe` | Full daily vibe (weather + oracle + food + music + activity + outfit) |
-| `/vibe food` | Food recommendation from preferences |
-| `/vibe music` | Music/genre recommendation |
-| `/vibe outfit` | What to wear (temperature-based) |
-| `/vibe activity` | Activity pick from preferences |
-
-### Rent (Human Task Delegation)
-
-| Command | Description |
-|---------|-------------|
-| `/rent` | List active bounties |
-| `/rent jobs` | List active bounties |
-| `/rent skills` | Available skills on RentAHuman |
-| `/rent post <desc>` | Create a new bounty (first sentence = title) |
 
 ### Tasks & Goals
 
@@ -240,31 +165,51 @@ Send these to @KatanaAgent_bot (or whatever your bot is named).
 | `add goal: <text>` | Add a new goal |
 | `/progress` | Today's stats (pending, completed, streak) |
 
-### Projects
+---
 
-| Command | Description |
-|---------|-------------|
-| `/projects` | List all projects with task counts |
-| `/project <name>` | Show tasks for a specific project |
-| `add project: <name>` | Create a new project |
-| `add to <project>: <task>` | Add a task to a project |
+## Building Custom Integrations
 
-### Habits
+### Quick Pattern
 
-| Command | Description |
-|---------|-------------|
-| `/habits` | List daily habits with streaks |
-| `add habit: <text>` | Add a new daily habit |
-| `habit done: <text>` or `habit done <#>` | Mark habit complete for today |
+1. **Add helper function** in `telegram_helpers.py`:
 
-### Agent Queue
+```python
+def get_my_service(query=None):
+    """
+    Fetch data from your API.
+    
+    Args:
+        query: Optional search parameter
+        
+    Returns:
+        str: Formatted Markdown response
+    """
+    # Your implementation
+    return "**My Service**\nResult here"
+```
 
-| Command | Description |
-|---------|-------------|
-| `order <what>` | Queue an order for Claude agent pickup |
-| `book <what>` | Queue a booking for Claude agent pickup |
+2. **Import in** `telegram_listener.py`:
 
-These commands require web interaction (Playwright) and are queued to `/tmp/telegram_agent_queue.json` for the terminal agent to process.
+```python
+from telegram_helpers import get_my_service
+```
+
+3. **Add command handler** in `route_command()`:
+
+```python
+if lower.startswith("/myservice"):
+    query = text.split(maxsplit=1)[1] if len(text.split()) > 1 else None
+    return get_my_service(query)
+```
+
+### Template Reference
+
+See `templates/helper_template.py` for a complete integration example with:
+- API client pattern
+- Error handling
+- Response formatting
+- User profile integration
+- Scheduled alerts
 
 ---
 
@@ -290,17 +235,39 @@ When sleeping (`sleep` / `goodnight`), the bot:
 
 ## Configuration
 
+### Environment Variables (`.env`)
+
+```env
+# Required - Get from @BotFather
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+
+# Required - Get from @userinfobot
+TELEGRAM_BOT_USER_ID=123456789
+
+# Required - Get from my.telegram.org
+TELEGRAM_API_ID=12345678
+TELEGRAM_API_HASH=your_api_hash_here
+
+# Optional - Add your own API keys
+# MY_SERVICE_API_KEY=your_key_here
+```
+
 ### `user_profile.json` → `telegram` section
 
 ```json
 {
   "telegram": {
-    "chat_id": 6812925961,
+    "chat_id": null,
     "notifications_enabled": true,
     "morning_brief": true,
     "task_reminders": true,
     "goal_checkin_time": "20:00",
     "always_listening": true
+  },
+  "location": {
+    "name": "Your City",
+    "latitude": 41.4489,
+    "longitude": -82.708
   }
 }
 ```
@@ -337,165 +304,90 @@ Message @userinfobot on Telegram — it replies with your numeric ID.
 
 ### Step 4: Configure Environment
 
-**`~/mcp-servers/telegram-mcp/.env`:**
+Create `.env` file:
+
 ```env
-TELEGRAM_API_ID=12345678
-TELEGRAM_API_HASH=your_api_hash
-TELEGRAM_SESSION_NAME=katana_bot
+TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_BOT_USER_ID=your_user_id
+TELEGRAM_API_ID=your_api_id
+TELEGRAM_API_HASH=your_api_hash
 ```
 
-**`~/News Letter/.env`:**
-```env
-TELEGRAM_API_ID=12345678
-TELEGRAM_API_HASH=your_api_hash
-TELEGRAM_BOT_USER_ID=your_user_id
-KATANA_HTTP_TELEGRAM_BOT_TOKEN=your_bot_token
-```
-
-### Step 5: Authenticate
+### Step 5: Start the Bot
 
 ```bash
-cd ~/News\ Letter
-python3 telegram_listener.py
-```
-
-First run prompts for phone number verification (one-time). After that, the bot token handles auth.
-
-### Step 6: Verify
-
-Send `/help` to your bot in Telegram. You should get the command list back.
-
----
-
-## Telegram MCP Tools (for Claude/OpenCode)
-
-These are available when the `telegram-mcp` server is running in Claude/OpenCode (separate from the listener daemon):
-
-### Core Tools
-
-| Tool | Purpose |
-|------|---------|
-| `telegram_send_message` | Send text to any chat (chat_id + text) |
-| `telegram_get_messages` | Read messages from a chat |
-| `telegram_get_me` | Verify connection / get user info |
-| `telegram_send_photo` | Send images (charts, screenshots) |
-| `telegram_send_document` | Send files (newsletter HTML, reports) |
-| `telegram_get_dialogs` | List all chats/channels |
-
-### Usage from Master Agent
-
-The Master Agent uses these tools (not the listener) for:
-- Pushing morning briefings
-- Sending alerts (newsletter published, system health)
-- Responding to queued commands
-- Two-way conversation when at the terminal
-
-```
-# Example: Send a message from Claude
-Use telegram_send_message with chat_id 6812925961 and text "Newsletter sent successfully"
+mkdir -p logs
+python telegram_listener.py --daemon
 ```
 
 ---
 
 ## Troubleshooting
 
-### "RentAHuman API key not configured" (or any missing env var)
+### Bot Not Responding
 
-**Cause:** Listener was started before the variable was added to `.env`.
-**Fix:** Restart the daemon:
+1. Check if listener is running:
+   ```bash
+   python telegram_listener.py --status
+   ```
+
+2. Check logs for errors:
+   ```bash
+   tail logs/telegram_listener.log
+   ```
+
+3. Verify `.env` credentials are correct
+
+### Permission Errors
+
 ```bash
-python3 telegram_listener.py --stop && python3 telegram_listener.py --daemon
+mkdir -p logs
+chmod 755 logs
 ```
 
-### Bot not responding to messages
-
-1. Check it's running: `python3 telegram_listener.py --status`
-2. Check it's not sleeping: look at status output for "mode: sleeping"
-3. Verify `TELEGRAM_BOT_USER_ID` matches your actual Telegram user ID
-4. Check logs: `tail -20 ~/News\ Letter/logs/telegram_listener.log`
-
-### Session expired / AUTH_KEY_UNREGISTERED
+### Import Errors
 
 ```bash
-# Delete bot session file and re-authenticate
-rm ~/mcp-servers/telegram-mcp/katana_bot.session*
-python3 telegram_listener.py
+pip install -r requirements.txt
 ```
 
-### Markdown parse errors in replies
+### Session Errors
 
-The listener tries markdown first, falls back to plain text on failure (see `telegram_listener.py:764-767`). If responses look broken, the source helper function likely has unescaped markdown characters.
-
-### Messages sent but not received on phone
-
-1. Check Telegram app notifications are enabled
-2. Verify `chat_id` in `user_profile.json` is correct
-3. Check Do Not Disturb / Focus mode on your phone
-4. Make sure the bot isn't muted in Telegram
-
-### "Listener not running (stale PID file)"
-
-The process crashed but left its PID file. Just start it again:
-```bash
-python3 telegram_listener.py --daemon
-```
-
-### Two listeners running simultaneously
+If you get session-related errors, delete the session file and restart:
 
 ```bash
-python3 telegram_listener.py --stop    # Stops by PID
-ps aux | grep telegram_listener        # Check for stragglers
-kill <pid>                             # Kill any remaining
-python3 telegram_listener.py --daemon  # Fresh start
+rm ~/mcp-servers/telegram-mcp/telegram_bot.session*
+python telegram_listener.py --daemon
 ```
 
 ---
 
-## Adding New Commands
+## Privacy Mode
 
-To add a new command to the bot:
+To make a private Telegram bot public (read all messages in groups):
 
-### 1. Add the helper function to `telegram_helpers.py`
+1. Open @BotFather on Telegram
+2. Send `/mybots` and select your bot
+3. Choose **Bot Settings** → **Group Privacy**
+4. Select **Disable**
 
-```python
-def get_my_new_thing():
-    """Pure Python — no MCP, no Claude, just logic."""
-    return "Result here"
-```
-
-### 2. Add the handler to `telegram_listener.py`
-
-```python
-def handle_my_command(lower):
-    if lower == "mycommand":
-        return get_my_new_thing()
-    return "Default response"
-```
-
-### 3. Add routing in `route_command()`
-
-```python
-if lower.startswith("mycommand"):
-    return handle_my_command(lower)
-```
-
-### 4. Add to the help text
-
-Update the help string in `route_command()` (around line 626).
-
-### 5. Restart the daemon
-
-```bash
-python3 telegram_listener.py --stop && python3 telegram_listener.py --daemon
-```
+**Note:** By default, bots only see messages that mention them or commands.
 
 ---
 
-## Security
+## For AI Assistants
 
-- **Never commit `.env` files** — they contain API keys and credentials
-- **Protect session files**: `chmod 600 ~/mcp-servers/telegram-mcp/*.session*`
-- **Bot only responds to `USER_ID`** — other users are silently ignored (`telegram_listener.py:755`)
-- **Enable 2FA** on your Telegram account
-- **Rotate bot token** if compromised: BotFather → `/revoke` → update `.env` → restart
+If you're an AI assistant helping set up this bot, use the `telegram-builder` skill for detailed integration guidance.
+
+### Setup Checklist
+
+```markdown
+- [ ] Verify Python 3.8+ is installed
+- [ ] Run `pip install -r requirements.txt`
+- [ ] Copy `.env.example` to `.env`
+- [ ] Guide user to get Telegram credentials
+- [ ] Create logs directory: `mkdir -p logs`
+- [ ] Start daemon: `python telegram_listener.py --daemon`
+- [ ] Verify: `python telegram_listener.py --status`
+- [ ] Test: Send `/help` to the bot
+```

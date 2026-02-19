@@ -29,48 +29,7 @@ Control the Telegram always-listening daemon and send/receive messages.
 
 ## Bot Commands (via Telegram)
 
-The user can send these commands directly to @KatanaAgent_bot:
-
-### Pulse (Newsletter)
-| Command | Action |
-|---------|--------|
-| `/pulse` | Pipeline status |
-| `/pulse newsletter` | Send today's NL to you via Telegram |
-| `/pulse newsletter gen` | Generate today's newsletter |
-| `/pulse stats` | Subscriber count |
-| `/pulse send` | Trigger email send to subscribers |
-| `/pulse news` | Top headlines from ranked_news |
-
-### Oracle (Astrology)
-| Command | Action |
-|---------|--------|
-| `/oracle` | Daily horoscope (sun/moon/rising) |
-| `/oracle week` | Week ahead outlook |
-| `/oracle moon` | Current moon phase & energy |
-| `/oracle vibe` | Planetary vibe (moon + day energy) |
-
-### Vibe (Daily Recs)
-| Command | Action |
-|---------|--------|
-| `/vibe` | Full vibe (weather + oracle + food + music + activity) |
-| `/vibe food` | Food recommendation |
-| `/vibe music` | Music recommendation |
-| `/vibe outfit` | What to wear |
-| `/vibe activity` | What to do today |
-| `/vibe activity <query>` | Activities for date/location (queued for agent) |
-
-### Calendar
-| Command | Action |
-|---------|--------|
-| `/calendar` | Today's events (Phase 2 — requires terminal agent) |
-
-### Rent (Human Tasks)
-| Command | Action |
-|---------|--------|
-| `/rent` | Active bounties summary |
-| `/rent jobs` | List open bounties |
-| `/rent post <desc>` | Post a new bounty |
-| `/rent skills` | List available skills |
+The user can send these commands directly to their bot:
 
 ### Tasks & Goals
 | Command | Action |
@@ -82,27 +41,6 @@ The user can send these commands directly to @KatanaAgent_bot:
 | `add goal: ...` | Add a goal |
 | `/progress` | Today's stats + streak |
 
-### Projects
-| Command | Action |
-|---------|--------|
-| `/projects` | List projects |
-| `/project <name>` | Show project tasks |
-| `add project: <name>` | Create a project |
-| `add to <project>: <task>` | Add task to a project |
-
-### Habits
-| Command | Action |
-|---------|--------|
-| `/habits` | Daily habits + streaks |
-| `add habit: ...` | Add recurring daily habit |
-| `habit done: ...` | Mark habit complete for today |
-
-### Agent Queue
-| Command | Action |
-|---------|--------|
-| `/order <what>` | Order food (queued for agent) |
-| `/book <what>` | Book reservation (queued for agent) |
-
 ### System
 | Command | Action |
 |---------|--------|
@@ -111,6 +49,18 @@ The user can send these commands directly to @KatanaAgent_bot:
 | `/weather` | Current weather |
 | `sleep` / `goodnight` | Enter sleep mode |
 | `wake` / `good morning` | Exit sleep mode |
+
+## Building Custom Commands
+
+Use the `telegram-builder` skill for detailed guidance on adding new integrations.
+
+### Quick Pattern
+
+1. Add helper in `telegram_helpers.py`
+2. Import in `telegram_listener.py`
+3. Add handler in `route_command()`
+
+See `templates/helper_template.py` for complete examples.
 
 ## Scheduled Alerts
 
@@ -140,18 +90,17 @@ Edit `.claude/user_profile.json` → `telegram` section:
 
 ## Architecture
 
-Two-tier approach — daemon is standalone Python, can't call Claude MCP:
+Two-tier approach — daemon is standalone Python:
 
 | Tier | How | Commands |
 |------|-----|---------|
-| **Direct** | Pure Python (API calls, file reads, Supabase, profile data) | stats, weather, tasks, goals, habits, projects, pulse status/news, oracle, vibe, rent |
-| **Subprocess** | Shell out to `send_newsletter.py`, `agent_orchestrator.py` | pulse send, pulse newsletter gen |
-| **Queue** | Write to `/tmp/telegram_agent_queue.json` for Claude pickup | order, book, vibe activity <query> |
+| **Direct** | Pure Python (API calls, file reads) | weather, tasks, goals, status |
+| **Queue** | Write to `/tmp/telegram_agent_queue.json` | complex queries |
 
 ## Implementation
 
 - **Scripts:** `telegram_listener.py` + `telegram_helpers.py` (project root)
-- **Session:** Reuses `~/mcp-servers/telegram-mcp/katana_bot.session`
+- **Session:** `~/mcp-servers/telegram-mcp/telegram_bot.session`
 - **Logs:** `logs/telegram_listener.log`
 - **PID:** `/tmp/telegram_listener.pid`
 - **State:** `/tmp/telegram_listener_state.json`
@@ -163,7 +112,7 @@ Two-tier approach — daemon is standalone Python, can't call Claude MCP:
 # Start on login
 python telegram_listener.py --daemon
 
-# Or create a launchd plist for auto-start (see below)
+# Or create a launchd plist for auto-start
 ```
 
-To auto-start on boot, create `~/Library/LaunchAgents/com.magi3.telegram-listener.plist`.
+To auto-start on boot, create `~/Library/LaunchAgents/com.yourname.telegram-listener.plist`.
