@@ -1,6 +1,7 @@
 # Telegram Bot Easy 🤖
 A powerful, extensible Telegram bot template with an always-listening daemon, task/goal management, and agent skill integration. Build your own custom Telegram bot with minimal setup.
-<img width="516" height="762" alt="image (9) (3)" src="https://github.com/user-attachments/assets/a9ffeb0e-86a1-4e99-9e54-6d82ee9de7f9" />
+
+<img width="516" height="762" alt="image (9) (4)" src="https://github.com/user-attachments/assets/b30d41f1-4d7a-4c5c-a097-2e3ffb451d5a" />
 
 ## ✨ Key Features
 
